@@ -1,0 +1,165 @@
+#I contributed to the development of this program
+
+import os
+
+# change current working directory
+os.chdir('C:/Users/xumy/OneDrive/SOA Research Institute U.S. Population Mortality Observations')
+
+from selenium import webdriver
+from time import sleep
+import pandas as pd
+
+# -----------------------------------------------------------------------------
+# Define class(s) and function(s)
+# -----------------------------------------------------------------------------
+
+class bot:
+   
+    def __init__(self, t):      
+       
+        # opening chrome
+        self.driver = webdriver.Chrome('chromedriver')
+        self.driver.maximize_window() # to avoid ElementClickInterceptedException (ref: https://www.testim.io/blog/selenium-element-is-not-clickable-at-point/)
+    
+        self.file_list = []
+        self.link_list = []
+        self.year_range = "1999-2020"
+        self.t = t
+        self.user_name = ""
+    
+    # -------------------------------------------------------------------------
+    # set variables
+    # -------------------------------------------------------------------------
+    
+    def set_file_list(self, file_list):
+        self.file_list = file_list
+        
+    def set_link_list(self, link_list):
+        self.link_list = link_list
+        
+    # set waiting time
+    def set_t(self, new_t = 2):
+        self.t = new_t
+    
+    # set year range: 1999-2020 or 1999-2021
+    def set_year_range(self, year_range):
+        self.year_range = year_range
+    
+    # set user name: used in setting the download path
+    def set_user_name(self, newname):
+        self.user_name = newname
+        
+    # -------------------------------------------------------------------------
+    # get variables
+    # -------------------------------------------------------------------------
+        
+    def get_download_path(self):
+        return "/Users/" + self.user_name + "/Downloads/"
+    
+    def get_database(self, link):
+        tmp = link.split("/")[-2]
+        
+        if tmp == 'D76':
+            database = "Underlying Cause of Death, "
+        elif tmp == 'D77':
+            database = "Multiple Cause of Death, "  
+        else:
+            raise NameError('Invalid database!')
+        
+        return database
+        
+    # -------------------------------------------------------------------------
+    # run query 
+    # -------------------------------------------------------------------------
+    
+    # run a single query
+    def run_query(self, file, link):
+        t = self.t
+        
+        # Get the database
+        database = self.get_database(link)
+       
+            
+        # open the link in chrome
+        self.driver.get(link)
+        sleep(t/4)
+        
+        # click I Agree button
+        self.driver.find_element('xpath', "/html/body/div[6]/main/div[3]/div/div/form/div[3]/div[3]/div[2]/input").click()
+        sleep(t/4)
+        
+        # click Send button
+        self.driver.find_element('xpath', "/html/body/div[6]/main/div[3]/div/div/form/table/tbody/tr/td/div[3]/input[1]").click()
+        sleep(t)
+        
+        # rename the file
+        download_path = self.get_download_path()
+        oldname = download_path + database + self.year_range + ".txt"
+        newname = download_path + file + ".txt"
+        os.rename(oldname, newname)        
+        
+        
+    # run all the queries
+    def download_file(self):
+        
+        file_list = self.file_list
+        link_list = self.link_list 
+        
+        
+        #creates loops to go through links
+        for i in range(len(link_list)):
+            
+            file = file_list[i]
+            link = link_list[i]
+            
+            self.run_query(file, link)           
+                   
+       
+        print("Done")
+
+
+def get_file_link_list(excel_name):
+    sheet_list = ["Age Adjusted Rates", "Age Group Rates", "Accidents by Opioid", "Opioid Detail"]
+    cols = "A, M"
+    col_name = ["file", "link"]
+    
+    file_list = []
+    link_list = []
+    
+    for i_sheet in sheet_list:
+        df = pd.read_excel(excel_name, sheet_name = i_sheet, usecols = cols, names = col_name)
+        df = df.dropna() # drop rows with missing values
+        
+        file = list(df.file)
+        
+        link = list(df.link)
+        
+        for x in file:
+            file_list.append(x)
+            
+        for x in link:
+            link_list.append(x)
+            
+    return file_list, link_list
+
+
+
+
+# -----------------------------------------------------------------------------
+# obtain file_list and link_list from the Queries spreadsheet
+# -----------------------------------------------------------------------------
+excel_name = "Wonder Queries_2020.xlsx"
+file_list, link_list = get_file_link_list(excel_name)
+
+# check total number of queries: 438
+print(len(file_list), len(link_list))
+
+# -----------------------------------------------------------------------------
+# run the query
+# -----------------------------------------------------------------------------
+mortality = bot(2)
+mortality.user_name = "xumy"
+
+mortality.set_file_list(file_list)
+mortality.set_link_list(link_list)
+mortality.download_file()
