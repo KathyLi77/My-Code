@@ -1,0 +1,47 @@
+import pandas as pd
+
+# Read in two CSV files
+ratings_df = pd.read_csv(r'\Temp\downloads\user_restaurants_new.csv')
+similarities_df = pd.read_csv(r'C:\Temp\downloads\KNN_TOP_50.csv')
+
+# Take the top 50 similar businesses for each target business
+similarities_df = similarities_df.head(50)
+
+# Calculate Jaccard similarities between each target business and its 50 most similar businesses
+results = []
+for _, row in similarities_df.iterrows():
+    target_id = row['business_id']
+    similar_ids = []
+    jaccard_sims = []  # Save Jaccard similarities for each similar business
+    for i in range(1, 51):  # Loop through each similar business ID column
+        col_name = 'similar{}_id'.format(i)
+        if row[col_name]:  # Check if similar business ID exists
+            similar_ids.append(row[col_name])
+    for similar_id in similar_ids:
+        target_users = ratings_df[ratings_df['restaurant_id'] == target_id]['users_id']
+        if not target_users.empty:
+            target_users = target_users.iloc[0]
+        else:
+            continue
+        similar_users = ratings_df[ratings_df['restaurant_id'] == similar_id]['users_id']
+        if not similar_users.empty:
+            similar_users = similar_users.iloc[0]
+        else:
+            similar_users = ''
+        target_users_set = set(target_users.split(','))
+        similar_users_set = set(similar_users.split(','))
+        intersection = target_users_set & similar_users_set
+        union = target_users_set | similar_users_set
+        if len(union) != 0:  # Avoid division by zero
+            jaccard_sim = len(intersection) / len(union)
+            jaccard_sims.append(jaccard_sim)
+    results.append([target_id] + jaccard_sims)
+
+# Write the results to a new CSV file
+results_df = pd.DataFrame(results)
+results_df.rename(columns={0: 'business_id'}, inplace=True)
+business_df = results_df[['business_id']]
+jaccard_df = results_df.iloc[:, 1:]
+results_concat = pd.concat([business_df, jaccard_df], axis=1)
+results_concat.to_csv('C:\Temp\downloads\jaccard_similarities1.csv', index=False)
+
