@@ -34,7 +34,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-df['distances'] = cosine_similarity(X, X.iloc[0:1]) # Here I assume that the parent vector is stored as the first row in the dataframe, but you could also store it separately
+df['distances'] = cosine_similarity(X, X.iloc[0:1]) 
 df
 '''n = 10 # or however many you want
 n_largest = df['distances'].nlargest(n + 1) # this contains the parent itself as the most similar entry, hence n+1 to get n children
