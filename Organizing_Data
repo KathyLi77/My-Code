@@ -1,0 +1,113 @@
+@author: lijiaqi
+"""
+
+import glob
+from tabulate import tabulate
+import pandas as pd
+import os
+import numpy as np
+ 
+# Get the list of all files and directories
+path = r"/Users/lijiaqi/Desktop/purdue/Research SOA/text_files1"
+os.chdir(path)
+dir_list = glob.glob('*.txt')
+file_name_list=[]
+for i in range(len(dir_list)):
+    dir_list[i][:dir_list[i].index(".")]
+    file_name_list=file_name_list+[dir_list[i][:dir_list[i].index(".")]]
+
+for i in range(len(dir_list)):
+    
+
+    with open(str(dir_list[i]), "r") as fp:
+        lines = fp.readlines()
+        hint= '"---"\n'
+        index=lines.index(str(hint))
+        before_index = lines[:index]   
+        #if i >= index:
+            #del lines[i]
+
+    with open(str(dir_list[i]), "w") as fp:
+        #for i in range(len(lines)):
+            #index=lines.index("---")
+            #if i >= index:
+                #del lines[i]
+            #if line.strip("\n") != "text to delete":
+        for a in range(len(before_index)):
+            fp.write(before_index[a])
+
+    df1 = pd.read_table(str(dir_list[i]))
+    del df1["Notes"]
+    print(df1)
+#Assigning columns names]
+    col = df1.columns
+    if len(col)==6:
+        df1.columns = ['Year', 'Year Code','Deaths','Population','Crude Rate','Non-standard Age Adjusted Rate']
+    if len(col)==8:
+        df1.columns = ['Sex','Sex Code', 'Year', 'Year Code','Deaths','Population','Crude Rate','Non-standard Age Adjusted Rate']
+
+    #xls = pd.ExcelFile("New Data-2020 Final.xlsx")
+    xls = pd.read_excel("Wonder Queries_2020.xlsx", sheet_name= 'Age Adjusted Rates', usecols="A, B, D, E",
+                   names = ["File Name", "COD", "Quintile", "Gender"])
+    xls_2 = xls.rename(columns={'File Name': 'File', 'Gender': 'Sex'})
+    
+    xls_opioid1= pd.read_excel("Wonder Queries_2020.xlsx", sheet_name= 'Accidents by Opioid', usecols="A, B, D, E",
+                   names = ["File Name", "COD", "Quintile", "Gender"])
+    xls_opioid = xls_opioid1.rename(columns={'File Name': 'File', 'Gender': 'Sex'})
+    
+    frames = [xls_2, xls_opioid]
+
+    xls2 = pd.concat(frames)
+    
+    
+    #df2 = pd.read_excel(xls, 'A-Age Adjusted Rates')
+    lines_extracted = xls2[xls2['File']== file_name_list[i]]#find line
+    rows = df1.shape[0]
+    df2 = pd.DataFrame(np.repeat(lines_extracted.values,rows, axis=0), columns=xls2.columns)#youwenti
+    
+
+    #print(lines_extracted)
+    if len(col)==6:
+        col_sex_list = df2['Sex'].tolist()
+        col_sexcode_list=[x[0] for x in col_sex_list]
+        xls3 = pd.DataFrame (col_sexcode_list, columns = ['Sex Code'])
+        #xls_final = pd.merge(df2,xls3, how="left")
+        #df3 = pd.merge(df2,xls3, how="left")
+        df3=pd.concat([df2, xls3], axis=1, join='inner')
+        print(df3)
+        #df_final= pd.merge(df3,df1, how="left")
+        df_final=pd.concat([df3, df1], axis=1, join='inner')
+        df_final.columns=['File',"COD", "Quintile",'Sex','Sex Code', 'Year', 'Year Code','Deaths','Population','Crude Rate','Non-standard Age Adjusted Rate']
+    
+    if len(col)==8:
+        del df2["Sex"]
+        #df_final= pd.merge(df2,df1, how="left")
+        df_final=pd.concat([df2, df1], axis=1, join='inner')
+        df_final.columns=['File',"COD", "Quintile",'Sex','Sex Code', 'Year', 'Year Code','Deaths','Population','Crude Rate','Non-standard Age Adjusted Rate']
+    
+    with open(str(dir_list[i])+"final.txt", 'w') as convert_file:
+        convert_file.write(tabulate(df_final))
+
+    with pd.ExcelWriter(str(dir_list[i])+"final.xlsx") as writer:
+        df_final.to_excel(writer, sheet_name='Age Adjusted Rates',index=0)
+
+#Getting the final result
+path_1 = r"/Users/lijiaqi/Desktop/purdue/Research SOA/text_files1"
+os.chdir(path_1)
+excel_list = glob.glob('*final.xlsx')
+
+excl_list = []
+for file in excel_list:
+    excl_list.append(pd.read_excel(file))
+excl_merged = pd.DataFrame()
+for excl_file in excl_list:
+    excl_merged = excl_merged.append(
+      excl_file)
+excl_merged.to_excel('final_data.xlsx', index=False)
+
+
+#.iloc[:,:10]
+#cols = df3.columns.tolist()
+#cols = cols[-2:] + cols[:-2]
+#df3 = df3[cols]
+#print (df3)
