@@ -43,7 +43,7 @@ n_largest'''
 df
 
 #Build Tree
-tree = KDTree(X)   #for some reason cosine doesn't work. It's wack and makes me sad
+tree = KDTree(X)  
 
 s = pickle.dumps(tree)
 tree_copy = pickle.loads(s)
