@@ -1,0 +1,75 @@
+from google.colab import drive
+drive.mount('/content/gdrive')
+from sklearn.neighbors import KDTree
+import json
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import pickle
+from sklearn.neighbors import KDTree
+os.chdir("/content/gdrive/My Drive/Colab Notebooks/yelp_dataset")
+print(os.getcwd())
+df = pd.read_csv("columncode.csv")
+df
+
+df = df.drop(["Unnamed: 0.1","Unnamed: 0"], axis=1)
+df
+
+def rando(x):
+  if x ==0:
+    x = np.random.uniform(0,0.1)
+  return x
+df = df.applymap(rando)
+
+#Only attributes included: Lat, long, stars, top 20 categories
+X = df[['latitude_norm', 'longitude_norm', 'stars', 'price_range', 'Sandwiches', 'Nightlife',
+       'Bars', 'American (Traditional)', 'Fast Food', 'Pizza',
+       'Breakfast & Brunch', 'Burgers', 'American (New)', 'Mexican',
+       'Coffee & Tea', 'Italian', 'Seafood', 'Chicken Wings', 'Chinese',
+       'Event Planning & Services', 'Salad', 'Delis', 'Cafes', 'Caterers']]
+X #Ensure everything is numeric
+
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+df['distances'] = cosine_similarity(X, X.iloc[0:1]) # Here I assume that the parent vector is stored as the first row in the dataframe, but you could also store it separately
+df
+'''n = 10 # or however many you want
+n_largest = df['distances'].nlargest(n + 1) # this contains the parent itself as the most similar entry, hence n+1 to get n children
+n_largest'''
+
+df
+
+#Build Tree
+tree = KDTree(X)   #for some reason cosine doesn't work. It's wack and makes me sad
+
+s = pickle.dumps(tree)
+tree_copy = pickle.loads(s)
+dist, ind = tree_copy.query(X, k=11)
+
+print(ind)  # indices of closest neighbors
+print(dist)  # distances to closest neighbors
+
+tops= pd.DataFrame(ind, columns = ["match","similar1","similar2","similar3", "similar4",'similar5', 'similar6', 'similar7', 'similar8', 'similar9', 'similar10'])
+#It's at this point where we would want to map to the business ID
+tops = tops.drop(['match'], axis=1)
+
+def addcol(string):
+  df[string] = tops[string]
+for i in tops.columns:
+  addcol(i)
+df
+
+#Turn index into business ID
+for i in range(1, 11):
+    similar_col = 'similar' + str(i)
+    row_nums = df[similar_col]
+    business_ids = df.loc[row_nums, 'business_id'].reset_index(drop=True)
+    new_col_name = similar_col + '_id'
+    df[new_col_name] = business_ids
+
+df
+
+df.to_csv("pntest.csv")
