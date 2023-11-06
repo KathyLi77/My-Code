@@ -1,0 +1,76 @@
+# Install and import necessary libraries
+!pip install --upgrade geopandas
+import os
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
+import matplotlib.pyplot as plt
+import re
+
+# Mount Google Drive to access files
+from google.colab import drive
+drive.mount('/content/gdrive')
+
+# Set the working directory
+os.chdir("/content/gdrive/My Drive/Colab Notebooks/yelp_dataset")
+
+# Load the US map shapefile
+us = gpd.read_file('/content/gdrive/My Drive/maps/cb_2019_us_state_20m.shp')
+
+# Load the business data
+df = pd.read_csv("similars_id_index.csv")
+
+# Function to extract business names using regex
+def extract_business_names(text):
+    pattern = r"'([^']*)'|" r'"([^"]*)"'
+    matches = re.findall(pattern, text)
+    return matches[0][0] or matches[0][1]
+
+# Function to create a GeoDataFrame from DataFrame with coordinates
+def create_geodataframe(df, lon_col='longitude', lat_col='latitude', name_col='business_names'):
+    df["Coordinates"] = list(zip(df[lon_col], df[lat_col]))
+    df["Coordinates"] = df["Coordinates"].apply(Point)
+    df[name_col] = df[name_col].astype(str).apply(extract_business_names)
+    return gpd.GeoDataFrame(df, geometry="Coordinates")
+
+# Get target location from user input
+input_business = input("What is the target business' Yelp Business ID?")
+target_location = df.loc[df['business_id'] == input_business, ['name_x','latitude_x', 'longitude_x']].values[0]
+
+# Get similar businesses
+similar_business = df.loc[df['business_id'] == input_business, ['similar1_id','similar2_id','similar3_id','similar4_id','similar5_id','similar6_id','similar7_id','similar8_id','similar9_id','similar10_id']].values[0]
+
+# Create dictionary for locations
+dic_location = {'business_names': similar_business, 'latitude': [], 'longitude': []}
+for business_id in similar_business:
+    location = df.loc[df['business_id'] == business_id, ['latitude_x','longitude_x']].values[0]
+    dic_location["latitude"].append(location[0])
+    dic_location["longitude"].append(location[1])
+
+# Add business names to the dictionary
+dic_location['business_names'] = [df.loc[df['business_id'] == id, "name_x"].values[0] for id in similar_business]
+
+# Create GeoDataFrame for similar businesses
+gdf_similar = create_geodataframe(pd.DataFrame(dic_location))
+
+# Create GeoDataFrame for target location
+target_point = Point(target_location[2], target_location[1])
+gdf_target = gpd.GeoDataFrame(geometry=[target_point])
+
+# Plot the map with target and similar businesses
+fig, ax = plt.subplots(figsize=(10,10))
+us.plot(ax=ax, alpha=0.5, edgecolor='k')
+gdf_similar.plot(ax=ax, marker='o', color='red', markersize=80)
+gdf_target.plot(ax=ax, marker='*', color='green', markersize=120)
+ax.annotate(target_location[0], xy=(target_location[2], target_location[1]), xytext=(-10, 10), textcoords="offset points", fontsize=12)
+
+# Annotate similar business names on the map
+for i, row in gdf_similar.iterrows():
+    ax.annotate(row['business_names'], xy=(row['Coordinates'].x, row['Coordinates'].y), xytext=(10, 0), textcoords="offset points", fontsize=12)
+
+# Set map limits
+ax.set_xlim([-76, -74])
+ax.set_ylim([39, 41])
+
+# Display the map
+plt.show()
