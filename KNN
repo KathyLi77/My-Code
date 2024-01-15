@@ -1,0 +1,73 @@
+import os
+import pandas as pd
+import numpy as np
+from sklearn.neighbors import KDTree
+import pickle
+# Set working directory
+os.chdir("W:\Desktop")
+print(os.getcwd())
+# Load data file
+df = pd.read_csv("merge_file.csv")
+print(df.head())
+# Creating a dictionary that has the counts of all the different categories in df
+categories_list = []
+categories_dict = {}
+for i in range(len(df)):
+  new = df.categories_x.iloc[i]
+  new = list(new.split(","))
+  new = [s.strip() for s in new]
+  categories_list.extend(new)
+for category in categories_list:
+  categories_dict[category] = categories_dict.get(category, 0) + 1
+# Sorting and take the top 20 excluding Food and Restaurants
+sorted_categories = sorted(categories_dict.items(), key=lambda x: x[1], reverse=True)
+top_categories = [category for category, count in sorted_categories[2:22]]
+# Binary encoding of the top categories
+for category in top_categories:
+  df[category] = df['categories_x'].apply(lambda x: int(category in x))
+#Only attributes included: Lat, long, stars, review count, top 20 categories
+X = df[['latitude_norm', 'longitude_norm', 'stars_norm','review_log_normalization', 'Coffee & Tea', 'Fast Food', 'Sandwiches', 'Burgers', 'Seafood',
+'Breakfast & Brunch', 'Nightlife', 'Specialty Food', 'Bars','American (Traditional)', 'Desserts', 'Bakeries','Ice Cream & Frozen Yogurt', 'American (New)', 'Beer', 'Wine & Spirits',
+'Event Planning & Services', 'Shopping', 'Mexican', 'Cafes']]
+# Build KDTree
+tree = KDTree(X)
+print("KDTree:", tree)
+s = pickle.dumps(tree)
+tree_copy = pickle.loads(s)
+# Query the tree
+dist, ind = tree_copy.query(X, k=11)
+print("Indices of 11 closest neighbors:", ind)
+print("Distances to 11 closest neighbors:", dist)
+# Create df for similar businesses
+tops = pd.DataFrame(ind, columns=["match", "similar1", "similar2", "similar3", "similar4", 'similar5', 'similar6', 'similar7', 'similar8', 'similar9', 'similar10'])
+tops = tops.drop(['match'], axis=1) # Drop the 'match' column as it is the business itself
+# Add the similar businesses' indices as new columns to original df
+for column in tops.columns:
+  df[column] = tops[column]
+# Map the indices of similar businesses to their business id
+for i in range(1, 11):
+  similar_col = 'similar' + str(i)
+  row_nums = df[similar_col].values
+  business_ids = df.loc[row_nums, 'business_id'].reset_index(drop=True)
+  new_col_name = similar_col + '_id'
+  df[new_col_name] = business_ids
+# Save the df with index to a csv file
+df.to_csv("similarsindex.csv")
+# Randomly choose indices for a report
+example_indices = np.random.choice(len(X), 10)
+print("Example indices for report:", example_indices)
+# Save the df with business id to a csv file
+df.to_csv("similars_id_index.csv")
+
+import matplotlib.pyplot as plt
+# Extract the top 20 categories and their counts, skipping Food and Restaurants
+top_20_categories = sorted_categories[2:22]
+# Split the categories and counts
+categories, counts = zip(*top_20_categories)
+# Plot the bar chart
+plt.figure(figsize=(10, 8))
+plt.barh(categories, counts, color='skyblue')
+plt.xlabel('Frequency')
+plt.title('Top 20 Categories Frequency')
+plt.gca().invert_yaxis()
+plt.show()
